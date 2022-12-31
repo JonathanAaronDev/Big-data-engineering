@@ -1,0 +1,144 @@
+// create data base
+use carsdb
+
+// create collections 
+db.createCollection('carCompanies')
+db.createCollection('types')
+
+// using insert,insertOne,insert many Commands to update collections 
+db.carCompanies.insert([
+	{name: "Ford" , Year:1899 , Headquater:"USA",colors:[],types:[]},
+	{name: "Mazda" , Year:1890 , Headquater:"Japan",colors:[],types:[]},
+	{name: "Toyota" , Year:1903 , Headquater:"Japan",colors:[],types:[]},
+	{name: "Mercedes" , Year:1905 , Headquater:"Germany",colors:[],types:[]},
+])
+db.carCompanies.insertMany([
+	{name: "Fiat" , Year: 1910 , Headquater:"Italy",colors:[],types:[]},
+	{name: "Renault" , Year: 1888 , Headquater:"France",colors:[],types:[]},
+	{name: "Tata" , Year: 1960 , Headquater:"India",colors:[],types:[]},
+	{name: "Chevrolet" , Year: 1921 , Headquater:"USA",colors:[],types:[]},
+	{name: "KIA" , Year: 1927 , Headquater:"South Korea",colors:[],types:[]},
+])
+db.carCompanies.insert(
+	{name: "Volvo" , Year: 1925 , Headquater:"Sweden",colors:[],types:[]}
+)
+db.carCompanies.insertOne(
+	{name: "Skoda" , Year: 1938 , Headquater:"Czech Republic",colors:[],types:[]}
+)
+db.carCompanies.insertOne(
+	{name: "Hyundai" , Year: 1967 , Headquater:"",colors:[],types:[]}
+)
+db.types.insertMany([
+	{name: "Jeep" , '4x4':true , Number_of_passangers:5,weight:1800,Gear:"Robotic"},
+	{name: "Bus" , '4x4':false , Number_of_passangers:64,weight:3200,Gear:"Manual"},
+	{name: "Bike" , '4x4':true , Number_of_passangers:2,weight:800,Gear:"Manual"},
+	{name: "Sadan" , '4x4':false ,Number_of_passangers:5,weight:1300,Gear:"Auto"},
+	{name: "Semi-Trailer",'4x4': true , Number_of_passangers:6,weight:2900,Gear:"Auto"},
+	{name: "Trcuk" , '4x4': true , Number_of_passangers:6,weight:2000,Gear:"Manual"},
+	{name: "Van" , '4x4': false , Number_of_passangers:10,weight:2400,Gear:"Auto"},
+	{name: "Mini-Van" , '4x4': false , Number_of_passangers:8,weight:1900,Gear:"Robotic"},
+	{name: "Hatchback" , '4x4': false , Number_of_passangers:5,weight:800,Gear:"Manual"},
+	{name: "SUV" , '4x4': false , Number_of_passangers:5,weight:1500,Gear:"Auto"}
+])
+
+//Creating a function that would assign colors to carCompanies colors array, using random to choose 3 random colors for each company
+function randColors(){
+	var colorList = ['Blue','Green','Red','Silver','Black','White','Orange','Brown'];
+	db.carCompanies.find({}).forEach(
+		function(doc){
+			a = colorList[colorList.length * Math.random() | 0 ];
+			b = colorList[colorList.length * Math.random() | 0 ];
+			c = colorList[colorList.length * Math.random() | 0 ];
+			db.carCompanies.update(
+			{_id:doc._id},
+			{$set:{"colors":[a,b,c]}});
+		}
+		);
+}
+randColors()
+// The function change the weight of car types, if the weight is over 1800 we would decrease the weight by 100 and if its lower than 1800 we would increase it by 100
+function weightMe() {
+	var addedweight = 100
+	db.types.find({}).forEach(
+		function (doc) {
+			if (doc.weight < 1800) {
+				db.types.updateMany(
+					{ _id: doc._id },
+					{ $set: { "weight": doc.weight + addedweight } });
+			}
+			else {
+				db.types.updateOne(
+					{ _id: doc._id },
+					{ $set: { "weight": doc.weight - addedweight } });
+
+			}
+		})
+}
+
+// applying the function
+weightMe()
+
+// This function assign values to the carCompanies types array
+function FillTypes() { 
+	var types1 = []  // create empty array
+	db.types.find({}).forEach( // Iterate through the types collection
+		function (doc) { 
+			types1.push(doc.name)
+		}) // Push the name of each doc in the types collection to our types array
+		db.carCompanies.find({}).forEach( // Iterate through the carCompanies colletcion
+			function (doc) {
+				a = types1[types1.length * Math.random() | 0];
+				b = types1[types1.length * Math.random() | 0];
+				c = types1[types1.length * Math.random() | 0];
+				d = types1[types1.length * Math.random() | 0];
+			db.carCompanies.update(
+				{ _id: doc._id },
+				{ $set: { "types": [a, b, c, d] } }); // Update the carCompanies types field with an array of 4 random types name.
+
+		})
+}
+// Call the function
+FillTypes()
+
+// ---- Using find ----
+
+db.types.find({'weight':{$gte:1600}})
+db.carCompanies.find({colors:'Green'},{name:1,"colors.$":1}).limit(3).skip(2).sort({name:1})
+// ---- Creating collection for backup to the carCompanies collection ----
+db.createCollection("carCompanies_bck")
+db.carCompanies.find().forEach( function(docs){db.carCompanies_bck.insert(docs);} ) // Insert the documents of carCompanies to our backup collection 
+db.carCompanies_bck.find().count() // Count how many we enterd
+db.carCompanies_bck.remove({Year:{$lt:1950} } ) // Remove all of the documents that we dont want(all the comapnies that we founded before 1950)
+db.carCompanies_bck.find().count() // Count how many documents were left
+
+
+//saving to carCompanies a Types embbeded version
+db.carCompanies.aggregate([
+	{
+	$lookup:
+	{
+		from:"types",
+		localField:"types",
+		foreignField:"name",
+		as:"types_data",
+	  }
+	 },{$unset: "types"},
+	 {
+		 $out:"TypesEmbedded"
+	 }
+ ])
+ 
+ db.TypesEmbedded.find().pretty() // Show our collection
+ 
+ // Show all the companies out of["Mazda","Totyota","Tata", "Mercedes"] that offer either Green or Red as a color
+db.carCompanies.aggregate({ $match: { "colors": { $in: ['Green', 'Red']} ,  "name": { $in: ["Mazda", "Toyota", "Tata", "Mercedes"] }}} ,{$sort:{name:1}} );  
+
+// Show the minimal weight and maxmial weight of a car type in our collection
+db.types.aggregate([
+	{$group:{_id:null , minWeight:{$min:"$weight"}, maxWeight:{$max:"$weight"} }},
+]);
+
+// Using map reduce to count how many colors each compny offers
+var mapFunc1 = function() {emit(this.name,this.colors)}
+var reduceFunc1 = function(key,values){return values.length}
+db.carCompanies.mapReduce(mapFunc1, reduceFunc1, {out: "Result1"})
